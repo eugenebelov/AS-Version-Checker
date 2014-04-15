@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			
+			[Bindable]
+			public var itemsInfo:ArrayCollection = new ArrayCollection();
+			
+			private var refList:FileReferenceList;
+			private var selectedFilesList:Vector.<FileReference>;
+			private var loadedFilesInfoList:Vector.<Object>;
+			
+			private function addText(event:Event = null):void 
+			{
+				
+			}
+			
+			protected function openDialogForBrowseFiles(event:MouseEvent):void
+			{
+				refList = new FileReferenceList();
+				
+				refList.addEventListener(Event.SELECT, filesSelected);
+				
+				refList.browse();
+			}
+			
+			protected function filesSelected(event:Event):void
+			{
+				var list:Array = event.target.fileList as Array;
+				selectedFilesList = new Vector.<FileReference>();
+				
+				list.forEach(function(item:FileReference, ...args):void {
+					selectedFilesList.push(item);
+				});
+				
+				loadFiles();
+			}
+			
+			protected function loadFiles():void 
+			{
+				loadedFilesInfoList = new Vector.<Object>();
+				selectedFilesList.forEach(function(item:FileReference, ...args):void {
+					var completeFunction:Function = function(event:Event):void 
+					{
+						var loadedFileInfo:Object = new Object();
+						loadedFileInfo.name = event.target.name;
+						loadedFileInfo.data = event.target.data;
+						loadedFileInfo.version = "none";
+						loadedFileInfo.loadedtime = new Date();
+						
+						loadedFilesInfoList.push(loadedFileInfo);
+						
+						item.removeEventListener(Event.COMPLETE, completeFunction);
+						
+						if(loadedFilesInfoList.length == selectedFilesList.length)
+							finishLoading();
+					}
+					
+					item.addEventListener(Event.COMPLETE, completeFunction);
+					item.load();
+				});
+			}
+			
+			private function finishLoading():void
+			{
+				itemsInfo.removeAll();
+				loadedFilesInfoList.forEach(function(item:Object, ...args):void {
+					var lc : LoaderContext = new LoaderContext();
+					lc.allowCodeImport = true;
+					
+					var movieLoader:Loader = new Loader();
+					movieLoader.loadBytes(item.data, lc);
+					movieLoader.contentLoaderInfo.addEventListener(Event.COMPLETE, function(event:Event):void {
+						onMovieClipLoaderComplete(event, item);
+					});
+				});
+			}
+			
+			protected function onMovieClipLoaderComplete(event:Event, ...args):void
+			{
+				var loadedFileInfo:Object = args[0];
+				loadedFileInfo.version = "AS" + event.currentTarget.actionScriptVersion
+				itemsInfo.addItem(loadedFileInfo);
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:VGroup top="10" left="10">
+		<s:Button label="Browse files" click="openDialogForBrowseFiles(event)" />
+		<s:List id="items" width="200" 
+				dataProvider="{itemsInfo}" 
+				itemRenderer="LoadedItemRenderer" />
+	</s:VGroup>
+	
+</s:WindowedApplication>
